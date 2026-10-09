@@ -1,21 +1,22 @@
 /**
- * Creates a mock google-services.json if GOOGLE_SERVICES_JSON environment variable is absent.
+ * Creates google-services.json for local and fork builds
+ * when GOOGLE_SERVICES_JSON is absent.
  */
 tasks.register('createMockGoogleServices') {
     doLast {
         def secrets = System.getenv("GOOGLE_SERVICES_JSON")
+        def configFile = file("google-services.json")
+
         if (secrets != null && !secrets.trim().isEmpty()) {
-            new File("$projectDir/google-services.json").text = secrets
+            configFile.text = secrets
             return
         }
-        def rootMockFile = file("google-services.json")
-        if (rootMockFile.exists() && rootMockFile.length() == 0) {
-            rootMockFile.delete()
+
+        if (configFile.exists() && configFile.length() > 0) {
+            return
         }
-        def mockFile = file("src/debug/google-services.json")
-        if (!mockFile.exists()) {
-            mockFile.parentFile.mkdirs()
-            def mockContent = """{
+
+        def mockContent = """{
   "project_info": {
     "project_number": "123456789000",
     "firebase_url": "https://mock-project-default-rtdb.firebaseio.com",
@@ -45,9 +46,17 @@ tasks.register('createMockGoogleServices') {
   ],
   "configuration_version": "1"
 }"""
-            mockFile.text = mockContent
-        }
+
+        configFile.parentFile.mkdirs()
+        configFile.text = mockContent
     }
 }
 
 preBuild.dependsOn createMockGoogleServices
+
+tasks.configureEach {
+    if (name.startsWith("process")
+            && name.endsWith("GoogleServices")) {
+        dependsOn createMockGoogleServices
+    }
+}
